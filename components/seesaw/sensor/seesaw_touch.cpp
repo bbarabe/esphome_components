@@ -1,8 +1,7 @@
-#include "seesawtouch.h"
+#include "seesaw_touch.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 static const char *const TAG = "seesaw.touch";
 
@@ -18,5 +17,4 @@ void SeesawTouch::update() {
     this->publish_state(value);
 }
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

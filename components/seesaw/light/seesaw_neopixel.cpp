@@ -1,8 +1,7 @@
 #include "seesaw_neopixel.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 static const char *const TAG = "seesaw.neopixel";
 
@@ -37,8 +36,8 @@ void SeesawNeopixel::write_state(light::LightState *state) {
     auto view = get_view_internal(i);
     this->parent_->color_neopixel(i, view.get_red(), view.get_green(), view.get_blue());
   }
+  this->parent_->update_neopixel();
 }
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw
 

@@ -1,8 +1,7 @@
-#include "seesawtemperature.h"
+#include "seesaw_temperature.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 static const char *const TAG = "seesaw.temperature";
 
@@ -15,5 +14,4 @@ void SeesawTemperature::update() {
   this->publish_state(value);
 }
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

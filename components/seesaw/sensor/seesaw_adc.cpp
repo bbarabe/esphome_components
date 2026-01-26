@@ -1,8 +1,7 @@
-#include "seesawadc.h"
+#include "seesaw_adc.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 static const char *const TAG = "seesaw.adc";
 
@@ -12,8 +11,11 @@ void SeesawADC::setup() {
 
 void SeesawADC::update() {
   uint16_t value = this->parent_->analog_read(this->pin_);
-  this->publish_state(value);
+  if (value == 0xffff) {
+    ESP_LOGW(TAG, "adc read error");
+  } else {
+    this->publish_state(value);
+  }
 }
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

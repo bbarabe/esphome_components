@@ -4,10 +4,9 @@
 #include "esphome/components/sensor/sensor.h"
 #include "../seesaw.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
-class SeesawRotaryEncoder : public sensor::Sensor, public Component {
+class SeesawEncoder : public sensor::Sensor, public Component {
  public:
   void setup() override;
   void loop() override;
@@ -25,5 +24,4 @@ class SeesawRotaryEncoder : public sensor::Sensor, public Component {
   int32_t max_value_{INT32_MAX};
 };
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

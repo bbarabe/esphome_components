@@ -4,8 +4,7 @@
 #include "esphome/components/light/addressable_light.h"
 #include "../seesaw.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 class SeesawNeopixel : public light::AddressableLight {
  public:
@@ -29,10 +28,8 @@ class SeesawNeopixel : public light::AddressableLight {
 
   light::ESPColorView get_view_internal(int32_t index) const override {
     uint8_t *base = this->buf_ + (3 * index);
-
     return light::ESPColorView(base + 0, base + 1, base + 2, nullptr, this->effect_data_ + index, &this->correction_);
   }
 };
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

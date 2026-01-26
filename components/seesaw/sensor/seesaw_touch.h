@@ -4,8 +4,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "../seesaw.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 class SeesawTouch : public sensor::Sensor, public PollingComponent {
  public:
@@ -20,5 +19,4 @@ class SeesawTouch : public sensor::Sensor, public PollingComponent {
   uint8_t channel_;
 };
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

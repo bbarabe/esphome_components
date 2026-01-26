@@ -4,8 +4,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "../seesaw.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 class SeesawTemperature : public sensor::Sensor, public PollingComponent {
  public:
@@ -18,5 +17,4 @@ class SeesawTemperature : public sensor::Sensor, public PollingComponent {
   Seesaw *parent_;
 };
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

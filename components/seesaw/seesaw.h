@@ -4,8 +4,7 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/i2c/i2c.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 enum SeesawModule : uint8_t {
   SEESAW_STATUS = 0x00,
@@ -21,6 +20,8 @@ enum SeesawModule : uint8_t {
   SEESAW_TOUCH = 0x0F,
   SEESAW_KEYPAD = 0x10,
   SEESAW_ENCODER = 0x11,
+  SEESAW_SPECTRUM = 0x12,
+  SEESAW_SOIL = 0x13,
 };
 
 enum : uint8_t {
@@ -75,10 +76,18 @@ enum : uint8_t {
   SEESAW_ADC_CHANNEL_OFFSET = 0x07,
 };
 
+enum : uint8_t {
+  SEESAW_SOIL_STATUS = 0x00,
+  SEESAW_SOIL_RATE = 0x01,
+  SEESAW_SOIL_VALUE = 0x10,
+  SEESAW_SOIL_SAMPLES = 0x20,
+  SEESAW_SOIL_XDELAY = 0x30,
+  SEESAW_SOIL_TIMEOUT = 0x40,
+};
+
 class Seesaw : public i2c::I2CDevice, public Component {
  public:
   void setup() override;
-  void loop() override;
   void dump_config() override;
 
   float get_setup_priority() const override;
@@ -92,14 +101,15 @@ class Seesaw : public i2c::I2CDevice, public Component {
   bool digital_read(uint8_t pin);
   void digital_write(uint8_t pin, bool state);
   void set_gpio_interrupt(uint32_t pin, bool enabled);
-  void setup_neopixel(int pin, uint16_t n);
+  void setup_neopixel(int pin, uint16_t num_leds);
   void color_neopixel(uint16_t n, uint8_t r, uint8_t g, uint8_t b);
+  void update_neopixel();
 
  protected:
   i2c::ErrorCode write8(SeesawModule mod, uint8_t reg, uint8_t value);
   i2c::ErrorCode write16(SeesawModule mod, uint8_t reg, uint16_t value);
   i2c::ErrorCode write32(SeesawModule mod, uint8_t reg, uint32_t value);
-  i2c::ErrorCode readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len);
+  i2c::ErrorCode readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len, int wait=0);
 
   uint8_t cpuid_;
   uint32_t version_;
@@ -112,12 +122,13 @@ class SeesawGPIOPin : public GPIOPin {
   void pin_mode(gpio::Flags flags) override;
   bool digital_read() override;
   void digital_write(bool value) override;
-  std::string dump_summary() const override;
+  size_t dump_summary(char *buffer, size_t len) const override;
 
   void set_parent(Seesaw *parent) { parent_ = parent; }
   void set_pin(uint8_t pin) { pin_ = pin; }
   void set_inverted(bool inverted) { inverted_ = inverted; }
   void set_flags(gpio::Flags flags) { flags_ = flags; }
+  gpio::Flags get_flags() const override { return this->flags_; }
 
  protected:
   Seesaw *parent_;
@@ -126,5 +137,4 @@ class SeesawGPIOPin : public GPIOPin {
   gpio::Flags flags_;
 };
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw

@@ -3,8 +3,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 
-namespace esphome {
-namespace seesaw {
+namespace esphome::seesaw {
 
 static const char *const TAG = "seesaw";
 
@@ -33,23 +32,18 @@ static const char *cpuid_to_string(uint8_t id) {
 
 void Seesaw::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Seesaw...");
-  /*
-  if (this->write8(SEESAW_STATUS, SEESAW_STATUS_SWRST, 0xff) != i2c::ERROR_OK) {
-    this->mark_failed();
+  uint8_t c = 0;
+  i2c::ErrorCode err = this->readbuf(SEESAW_STATUS, SEESAW_STATUS_HW_ID, &c, 1);
+  if (err != i2c::ERROR_OK) {
+    this->mark_failed(LOG_STR("unable to communicate"));
     return;
   }
-  */
-  uint8_t c = 0;
-  this->readbuf(SEESAW_STATUS, SEESAW_STATUS_HW_ID, &c, 1);
   this->cpuid_ = c;
   uint8_t buf[4];
   this->readbuf(SEESAW_STATUS, SEESAW_STATUS_VERSION, buf, 4);
   this->version_ = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
   this->readbuf(SEESAW_STATUS, SEESAW_STATUS_OPTIONS, buf, 4);
   this->options_ = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-}
-
-void Seesaw::loop() {
 }
 
 void Seesaw::dump_config() {
@@ -62,34 +56,8 @@ void Seesaw::dump_config() {
     ESP_LOGCONFIG(TAG, "  CPU: unknown (%02x)", this->cpuid_);
   }
   uint32_t v = this->version_;
-  ESP_LOGCONFIG(TAG, "  Version: %d-%02d-%02d %u", v & 0x3f, (v >> 7) & 0xf, (v >> 11) & 0x1f, v >> 16);
+  ESP_LOGCONFIG(TAG, "  Version: 20%02d-%02d-%02d %u", v & 0x3f, (v >> 7) & 0xf, (v >> 11) & 0x1f, v >> 16);
   ESP_LOGCONFIG(TAG, "  Options: %08x", this->options_);
-  /*
-  if (this->options_ & (1 << SEESAW_GPIO))
-    ESP_LOGCONFIG(TAG, "    GPIO");
-  if (this->options_ & (1 << SEESAW_SERCOM0))
-    ESP_LOGCONFIG(TAG, "    Serial");
-  if (this->options_ & (1 << SEESAW_TIMER))
-    ESP_LOGCONFIG(TAG, "    Timer");
-  if (this->options_ & (1 << SEESAW_ADC))
-    ESP_LOGCONFIG(TAG, "    ADC");
-  if (this->options_ & (1 << SEESAW_DAC))
-    ESP_LOGCONFIG(TAG, "    DAC");
-  if (this->options_ & (1 << SEESAW_INTERRUPT))
-    ESP_LOGCONFIG(TAG, "    Interrupt");
-  if (this->options_ & (1 << SEESAW_DAP))
-    ESP_LOGCONFIG(TAG, "    DAP");
-  if (this->options_ & (1 << SEESAW_EEPROM))
-    ESP_LOGCONFIG(TAG, "    EEPROM");
-  if (this->options_ & (1 << SEESAW_NEOPIXEL))
-    ESP_LOGCONFIG(TAG, "    NeoPixel");
-  if (this->options_ & (1 << SEESAW_TOUCH))
-    ESP_LOGCONFIG(TAG, "    Touch");
-  if (this->options_ & (1 << SEESAW_KEYPAD))
-    ESP_LOGCONFIG(TAG, "    Keypad");
-  if (this->options_ & (1 << SEESAW_ENCODER))
-    ESP_LOGCONFIG(TAG, "    Encoder");
-  */
 }
 
 void Seesaw::enable_encoder(uint8_t number) {
@@ -106,38 +74,38 @@ int32_t Seesaw::get_encoder_position(uint8_t number) {
 
 int16_t Seesaw::get_touch_value(uint8_t channel) {
   uint8_t buf[2];
-  if (this->readbuf(SEESAW_TOUCH, SEESAW_TOUCH_CHANNEL_OFFSET + channel, buf, 2) != i2c::ERROR_OK)
+  if (this->readbuf(SEESAW_TOUCH, SEESAW_TOUCH_CHANNEL_OFFSET + channel, buf, 2, 3) != i2c::ERROR_OK)
     return -1;
-  return (buf[0] << 8) | buf[1];
+  return ((uint16_t)buf[0] << 8) | buf[1];
 }
 
 float Seesaw::get_temperature() {
   uint8_t buf[4];
-  if (this->readbuf(SEESAW_STATUS, SEESAW_STATUS_TEMP, buf, 4) != i2c::ERROR_OK)
-    return 0;
-  int32_t value = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
+  if (this->readbuf(SEESAW_STATUS, SEESAW_STATUS_TEMP, buf, 4, 1) != i2c::ERROR_OK)
+    return NAN;
+  uint32_t value = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
+  if (value == 0xffffffff) {
+    ESP_LOGW(TAG, "no temperature sensor");
+    return NAN;
+  }
   return float(value) / 0x10000;
 }
 
 void Seesaw::set_pinmode(uint8_t pin, uint8_t mode) {
   uint32_t pins = 1 << pin;
-  switch (mode) {
-    case gpio::FLAG_OUTPUT:
+  if (mode == gpio::FLAG_OUTPUT) {
     this->write32(SEESAW_GPIO, SEESAW_GPIO_DIRSET_BULK, pins);
-    break;
-   case gpio::FLAG_INPUT:
+  } else if (mode & gpio::FLAG_INPUT) {
     this->write32(SEESAW_GPIO, SEESAW_GPIO_DIRCLR_BULK, pins);
-    break;
-   case gpio::FLAG_PULLUP:
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_DIRCLR_BULK, pins);
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_PULLENSET, pins);
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_BULK_SET, pins);
-    break;
-   case gpio::FLAG_PULLDOWN:
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_DIRCLR_BULK, pins);
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_PULLENSET, pins);
-    this->write32(SEESAW_GPIO, SEESAW_GPIO_BULK_CLR, pins);
-    break;
+    if (mode & gpio::FLAG_PULLUP) {
+      this->write32(SEESAW_GPIO, SEESAW_GPIO_PULLENSET, pins);
+      this->write32(SEESAW_GPIO, SEESAW_GPIO_BULK_SET, pins);
+    } else if (mode & gpio::FLAG_PULLDOWN) {
+      this->write32(SEESAW_GPIO, SEESAW_GPIO_PULLENSET, pins);
+      this->write32(SEESAW_GPIO, SEESAW_GPIO_BULK_CLR, pins);
+    } else {
+      this->write32(SEESAW_GPIO, SEESAW_GPIO_PULLENCLR, pins);
+    }
   }
 }
 
@@ -151,7 +119,7 @@ void Seesaw::set_gpio_interrupt(uint32_t pin, bool enabled) {
 
 uint16_t Seesaw::analog_read(uint8_t pin) {
   uint8_t buf[2];
-  this->readbuf(SEESAW_ADC, SEESAW_ADC_CHANNEL_OFFSET + pin, buf, 2);
+  this->readbuf(SEESAW_ADC, SEESAW_ADC_CHANNEL_OFFSET + pin, buf, 2, 1);
   return (buf[0] << 8) + buf[1];
 }
 
@@ -171,17 +139,20 @@ void Seesaw::digital_write(uint8_t pin, bool state) {
     this->write32(SEESAW_GPIO, SEESAW_GPIO_BULK_CLR, pin);
 }
 
-void Seesaw::setup_neopixel(int pin, uint16_t n) {
+void Seesaw::setup_neopixel(int pin, uint16_t num_leds) {
   this->write8(SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_SPEED, 1);
-  this->write16(SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_BUF_LENGTH, n * 3);
+  this->write16(SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_BUF_LENGTH, num_leds * 3);
   this->write8(SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_PIN, pin);
 }
 
 void Seesaw::color_neopixel(uint16_t n, uint8_t r, uint8_t g, uint8_t b) {
   uint16_t offset = n * 3;
-  uint8_t buf[7] = {SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_BUF, (offset >> 8), offset, g, r, b};
+  uint8_t buf[7] = {SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_BUF, (uint8_t)(offset >> 8), (uint8_t)(offset & 0xff), g, r, b};
   this->write(buf, 7);
-  buf[1] = SEESAW_NEOPIXEL_SHOW;
+}
+
+void Seesaw::update_neopixel() {
+  uint8_t buf[2] = {SEESAW_NEOPIXEL, SEESAW_NEOPIXEL_SHOW};
   this->write(buf, 2);
 }
 
@@ -201,15 +172,17 @@ i2c::ErrorCode Seesaw::write32(SeesawModule mod, uint8_t reg, uint32_t value) {
   return this->write(buf, 6);
 }
 
-i2c::ErrorCode Seesaw::readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len) {
+i2c::ErrorCode Seesaw::readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len, int wait) {
   uint8_t sendbuf[2] = {mod, reg};
   i2c::ErrorCode err = this->write(sendbuf, 2);
   if (err != i2c::ERROR_OK)
     return err;
+  if (wait)
+    delay(wait);
   return this->read(buf, len);
 }
 
-void SeesawGPIOPin::setup() { pin_mode(flags_); }
+void SeesawGPIOPin::setup() { this->pin_mode(flags_); }
 
 void SeesawGPIOPin::pin_mode(gpio::Flags flags) { this->parent_->set_pinmode(this->pin_, flags); }
 
@@ -221,9 +194,8 @@ void SeesawGPIOPin::digital_write(bool value) {
   this->parent_->digital_write(this->pin_, value != this->inverted_);
 }
 
-std::string SeesawGPIOPin::dump_summary() const {
-  return str_sprintf("%u via SeeSaw", this->pin_);
+size_t SeesawGPIOPin::dump_summary(char *buffer, size_t len) const {
+  return snprintf(buffer, len, "%u via Seesaw", this->pin_);
 }
 
-}  // namespace seesaw
-}  // namespace esphome
+}  // namespace esphome::seesaw
