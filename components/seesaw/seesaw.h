@@ -83,8 +83,14 @@ class Seesaw : public i2c::I2CDevice, public Component {
 
   float get_setup_priority() const override;
 
+  void set_log_errors(
+    bool enabled, // Enable logging of I2C read/write errors.
+    uint32_t interval_ms); // Minimum milliseconds between error logs.
+
   void enable_encoder(uint8_t number);
-  int32_t get_encoder_position(uint8_t number);
+  bool get_encoder_position(
+    uint8_t number, // Encoder index.
+    int32_t *position); // Out: signed absolute position (clockwise positive).
   int16_t get_touch_value(uint8_t channel);
   float get_temperature();
   void set_pinmode(uint8_t pin, uint8_t mode);
@@ -96,14 +102,28 @@ class Seesaw : public i2c::I2CDevice, public Component {
   void color_neopixel(uint8_t r, uint8_t g, uint8_t b);
 
  protected:
+  // Logs I2C errors with rate limiting.
+  void log_i2c_error_(
+    SeesawModule mod, // Seesaw module being accessed.
+    uint8_t reg, // Seesaw register offset.
+    i2c::ErrorCode err, // I2C error code.
+    const char *phase); // Phase that failed ("write"/"read").
+
   i2c::ErrorCode write8(SeesawModule mod, uint8_t reg, uint8_t value);
   i2c::ErrorCode write16(SeesawModule mod, uint8_t reg, uint16_t value);
   i2c::ErrorCode write32(SeesawModule mod, uint8_t reg, uint32_t value);
   i2c::ErrorCode readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len);
+  bool read_encoder_position_(
+    uint8_t number, // Encoder index.
+    int32_t *position); // Out: signed absolute position (clockwise positive).
 
   uint8_t cpuid_;
   uint32_t version_;
   uint32_t options_;
+  bool log_errors_{false}; // Enables I2C error logging.
+  uint32_t log_error_interval_ms_{1000}; // Minimum interval between error logs.
+  uint32_t last_error_ms_{0}; // Timestamp of last error log.
+  uint16_t read_settle_delay_us_{250}; // Microseconds to wait between register select write and read.
 };
 
 class SeesawGPIOPin : public GPIOPin {

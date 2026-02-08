@@ -29,6 +29,7 @@ CONF_ADC = "adc"
 CONF_ENCODER = "encoder"
 CONF_TEMP = "temperature"
 CONF_TOUCH = "touch"
+CONF_POLL_INTERVAL_MS = "poll_interval_ms"
 
 CONFIG_SCHEMA = cv.typed_schema(
     {
@@ -54,6 +55,7 @@ CONFIG_SCHEMA = cv.typed_schema(
                 cv.Optional(CONF_NUMBER, default=0): cv.int_,
                 cv.Optional(CONF_MIN_VALUE): cv.int_,
                 cv.Optional(CONF_MAX_VALUE): cv.int_,
+                cv.Optional(CONF_POLL_INTERVAL_MS, default="20ms"): cv.positive_time_period_milliseconds,
             }
         ).extend(cv.COMPONENT_SCHEMA),
         CONF_TEMP: sensor.sensor_schema(
@@ -96,6 +98,6 @@ async def to_code(config):
             cg.add(var.set_min_value(config[CONF_MIN_VALUE]))
         if CONF_MAX_VALUE in config:
             cg.add(var.set_max_value(config[CONF_MAX_VALUE]))
+        cg.add(var.set_poll_interval_ms(config[CONF_POLL_INTERVAL_MS]))
     elif config[CONF_TYPE] == CONF_TOUCH:
         cg.add(var.set_channel(config[CONF_CHANNEL]))
-
