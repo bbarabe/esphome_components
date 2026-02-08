@@ -52,6 +52,12 @@ void Seesaw::setup() {
 void Seesaw::loop() {
 }
 
+void Seesaw::set_log_errors(bool enabled, uint32_t interval_ms)
+{
+  this->log_errors_ = enabled;
+  this->log_error_interval_ms_ = interval_ms > 0 ? interval_ms : 1u;
+}
+
 void Seesaw::dump_config() {
   ESP_LOGCONFIG(TAG, "Seesaw module:");
   LOG_I2C_DEVICE(this);
@@ -92,16 +98,27 @@ void Seesaw::dump_config() {
   */
 }
 
+void Seesaw::log_i2c_error_(SeesawModule mod, uint8_t reg, i2c::ErrorCode err, const char *phase)
+{
+  if (!this->log_errors_)
+  {
+    return;
+  }
+  const uint32_t now = millis();
+  if ((now - this->last_error_ms_) < this->log_error_interval_ms_)
+  {
+    return;
+  }
+  ESP_LOGW(TAG, "I2C %s failed (mod=0x%02X reg=0x%02X err=%d)", phase, mod, reg, err);
+  this->last_error_ms_ = now;
+}
+
 void Seesaw::enable_encoder(uint8_t number) {
   this->write8(SEESAW_ENCODER, SEESAW_ENCODER_INTENSET + number, 0x01);
 }
 
-int32_t Seesaw::get_encoder_position(uint8_t number) {
-  uint8_t buf[4];
-  if (this->readbuf(SEESAW_ENCODER, SEESAW_ENCODER_POSITION + number, buf, 4) != i2c::ERROR_OK)
-    return 0;
-  int32_t value = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
-  return -value;  // make clockwise positive
+bool Seesaw::get_encoder_position(uint8_t number, int32_t *position) {
+  return this->read_encoder_position_(number, position);
 }
 
 int16_t Seesaw::get_touch_value(uint8_t channel) {
@@ -200,12 +217,44 @@ i2c::ErrorCode Seesaw::write32(SeesawModule mod, uint8_t reg, uint32_t value) {
   return this->write(buf, 6);
 }
 
-i2c::ErrorCode Seesaw::readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len) {
+i2c::ErrorCode Seesaw::readbuf(SeesawModule mod, uint8_t reg, uint8_t *buf, uint8_t len)
+{
   uint8_t sendbuf[2] = {mod, reg};
   i2c::ErrorCode err = this->write(sendbuf, 2);
   if (err != i2c::ERROR_OK)
+  {
+    log_i2c_error_(mod, reg, err, "write");
     return err;
-  return this->read(buf, len);
+  }
+  if (this->read_settle_delay_us_ > 0)
+  {
+    delayMicroseconds(this->read_settle_delay_us_);
+  }
+  err = this->read(buf, len);
+  if (err != i2c::ERROR_OK)
+  {
+    log_i2c_error_(mod, reg, err, "read");
+  }
+  return err;
+}
+
+bool Seesaw::read_encoder_position_(uint8_t number, int32_t *position)
+{
+  if (position == nullptr)
+  {
+    return false;
+  }
+
+  uint8_t buf[4];
+  const i2c::ErrorCode err = this->readbuf(SEESAW_ENCODER, SEESAW_ENCODER_POSITION + number, buf, 4);
+  if (err != i2c::ERROR_OK)
+  {
+    return false;
+  }
+
+  const int32_t value = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
+  *position = -value; // make clockwise positive
+  return true;
 }
 
 void SeesawGPIOPin::setup() { pin_mode(flags_); }

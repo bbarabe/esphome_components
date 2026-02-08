@@ -21,10 +21,14 @@ Seesaw = seesaw_ns.class_("Seesaw", i2c.I2CDevice, cg.Component)
 SeesawGPIOPin = seesaw_ns.class_("SeesawGPIOPin", cg.GPIOPin)
 
 CONF_SEESAW = "seesaw"
+CONF_LOG_ERRORS = "log_errors"
+CONF_LOG_ERROR_INTERVAL = "log_error_interval_ms"
 
 CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(Seesaw),
+        cv.Optional(CONF_LOG_ERRORS, default=False): cv.boolean,
+        cv.Optional(CONF_LOG_ERROR_INTERVAL, default="1s"): cv.positive_time_period_milliseconds,
     }
 ).extend(i2c.i2c_device_schema(0x49))
 
@@ -32,6 +36,7 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
+    cg.add(var.set_log_errors(config[CONF_LOG_ERRORS], config[CONF_LOG_ERROR_INTERVAL]))
 
 
 def validate_mode(value):
@@ -72,4 +77,3 @@ async def seesaw_pin_to_code(config):
     cg.add(var.set_inverted(config[CONF_INVERTED]))
     cg.add(var.set_flags(pins.gpio_flags_expr(config[CONF_MODE])))
     return var
-
